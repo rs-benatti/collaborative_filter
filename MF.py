@@ -13,7 +13,7 @@ class MatrixFactorizarion:
         non_nan_indices = np.where(~np.isnan(self.R))
         self.non_nan_indices = non_nan_indices
         row_indices, col_indices = non_nan_indices
-
+        mean = self.R[~np.isnan(self.R)].mean()
         self.S = [row_indices, col_indices, self.R[~np.isnan(self.R)]]
         values = self.R.flatten()
         values = values[~np.isnan(values)]
@@ -30,8 +30,9 @@ class MatrixFactorizarion:
         initial_guess = 1.0
         sigma = fsolve(equation, initial_guess, args=(var_R, mu_UI))[0]
         
-        self.I = np.random.normal(mu_UI, sigma, (self.R.shape[0], self.k)).astype('float64')
-        self.U = np.random.normal(mu_UI, sigma, (self.R.shape[1], self.k)).astype('float64')
+        self.I = (np.ones((self.R.shape[0], self.k)) / self.k**0.5) * mean**0.5
+        self.U = (np.ones((self.R.shape[1], self.k)) / self.k**0.5) * mean**0.5
+        print(self.I @ self.U.T)
 
     def C(self, R, I, U, l, mu):
         '''
@@ -65,10 +66,11 @@ class MatrixFactorizarion:
         non_nan_indices = np.column_stack(self.non_nan_indices)
         
         for non_nan_index in non_nan_indices[non_nan_indices[:, 0]==i]:
+            j = non_nan_index[1]
             product = 0
             for s in range(self.k):
                 product += self.I[i, s] * self.U[non_nan_index[1], s]
-            gradient += (self.R[i, non_nan_index[1]] - product)*(-self.U[non_nan_index[1], non_nan_index]) + 2 * self.l * self.I[i, q]
+            gradient += (self.R[i, j] - product)*(-self.U[j, q]) + 2 * self.l * self.I[i, q]
         return 2*gradient
 
     def calculate_gradient_ujq(self, j, q):
@@ -76,11 +78,12 @@ class MatrixFactorizarion:
         non_nan_indices = np.column_stack(self.non_nan_indices)
         
         for non_nan_index in non_nan_indices[non_nan_indices[:, 1]==j]:
+            i = non_nan_index[0]
             product = 0
             for s in range(self.k):
-                product += self.I[non_nan_index[0], s] * self.U[non_nan_index[1], s]
-            gradient += (self.R[non_nan_index[0], j] - product)*(-self.I[non_nan_index[0], non_nan_index]) + 2 * self.l * self.I[j, q]
-        return gradient
+                product += self.I[i, s] * self.U[j, s]
+            gradient += (self.R[i, j] - product)*(-self.I[i, q]) + 2 * self.mu * self.U[j, q]
+        return 2*gradient
 
     
     def fit(self, lr_I, lr_U, num_iterations):
@@ -108,18 +111,26 @@ class MatrixFactorizarion:
 
             # Calculate gradients for I matrix
             num_users = self.R.shape[0]
+            num_items = self.R.shape[1]
+            '''
             for i in range(num_users):
                 for q in range(self.k):
                     gradient_iiq = self.calculate_gradient_iiq(i, q)
                     gradients_I[i, q] = gradient_iiq
-            print(gradients_I)
             # Calculate gradients for U matrix
             num_items = self.R.shape[1]
             for j in range(num_items):
                 for q in range(self.k):
-                    gradient_ujq = self.calculate_gradient_ujq(i, j, q)
+                    gradient_ujq = self.calculate_gradient_ujq(j, q)
                     gradients_U[j, q] = gradient_ujq
-            
+            '''
+            for q in range(self.k):
+                for i in range(num_users):
+                    gradient_iiq = self.calculate_gradient_iiq(i, q)
+                    gradients_I[i, q] = gradient_iiq
+                for j in range(num_items):
+                    gradient_ujq = self.calculate_gradient_ujq(j, q)
+                    gradients_U[j, q] = gradient_ujq
             # Update I and U matrices using gradients and learning rate
             self.I -= lr_I * gradients_I
             self.U -= lr_U * gradients_U
