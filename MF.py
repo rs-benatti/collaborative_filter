@@ -10,6 +10,11 @@ class MatrixFactorizarion:
         self.k = k
         self.l = l
         self.mu = mu
+        non_nan_indices = np.where(~np.isnan(self.R))
+        self.non_nan_indices = non_nan_indices
+        row_indices, col_indices = non_nan_indices
+
+        self.S = [row_indices, col_indices, self.R[~np.isnan(self.R)]]
         values = self.R.flatten()
         values = values[~np.isnan(values)]
         # Fit a normal distribution to the histogram
@@ -54,16 +59,37 @@ class MatrixFactorizarion:
         R = np.nan_to_num(R, nan=0)
         #return loss_term + I_penalization_term + U_penalization_term
         return np.trace(R.T @ R) - 2 * np.trace(R.T @ I @ U.T) + np.trace(U @ I.T @ I @ U.T) + self.l * np.trace(I.T @ I) + self.mu * np.trace(U.T @ U)
+
+    def calculate_gradient_iiq(self, i, q):
+        gradient = 0
+        non_nan_indices = np.column_stack(self.non_nan_indices)
+        
+        for non_nan_index in non_nan_indices[non_nan_indices[:, 0]==i]:
+            product = 0
+            for s in range(self.k):
+                product += self.I[i, s] * self.U[non_nan_index[1], s]
+            gradient += (self.R[i, non_nan_index[1]] - product)*(-self.U[non_nan_index[1], non_nan_index]) + 2 * self.l * self.I[i, q]
+        return 2*gradient
+
+    def calculate_gradient_ujq(self, j, q):
+        gradient = 0
+        non_nan_indices = np.column_stack(self.non_nan_indices)
+        
+        for non_nan_index in non_nan_indices[non_nan_indices[:, 1]==j]:
+            product = 0
+            for s in range(self.k):
+                product += self.I[non_nan_index[0], s] * self.U[non_nan_index[1], s]
+            gradient += (self.R[non_nan_index[0], j] - product)*(-self.I[non_nan_index[0], non_nan_index]) + 2 * self.l * self.I[j, q]
+        return gradient
+
     
     def fit(self, lr_I, lr_U, num_iterations):
-        # Compute ∂C/∂U(I, U)
-        # -2RᵀI + 2UIᵀI + 2µU
         R = self.R
         R = np.nan_to_num(R, nan=0)
 
         mu = self.mu
         l = self.l
-        
+        '''
         for iteration in range(num_iterations):
             U = self.U
             I = self.I
@@ -75,7 +101,58 @@ class MatrixFactorizarion:
             cost = self.C(R, I, U, l, mu)
 
             print(f"Iteration {iteration + 1}: Cost = {cost}")
+        '''
+        for iteration in range(num_iterations):
+            gradients_I = np.zeros_like(self.I)  # Initialize gradients for I matrix
+            gradients_U = np.zeros_like(self.U)  # Initialize gradients for U matrix
+
+            # Calculate gradients for I matrix
+            num_users = self.R.shape[0]
+            for i in range(num_users):
+                for q in range(self.k):
+                    gradient_iiq = self.calculate_gradient_iiq(i, q)
+                    gradients_I[i, q] = gradient_iiq
+            print(gradients_I)
+            # Calculate gradients for U matrix
+            num_items = self.R.shape[1]
+            for j in range(num_items):
+                for q in range(self.k):
+                    gradient_ujq = self.calculate_gradient_ujq(i, j, q)
+                    gradients_U[j, q] = gradient_ujq
+            
+            # Update I and U matrices using gradients and learning rate
+            self.I -= lr_I * gradients_I
+            self.U -= lr_U * gradients_U
+            cost = self.C(self.R, self.I, self.U, l, mu)
+
+            print(f"Iteration {iteration + 1}: Cost = {cost}")
 
     def predict(self):
         return self.I @ self.U.T
+
+    def RMSE(self, predictions, targets):
+        """
+        Calculate the Root Mean Squared Error (RMSE) between two vectors.
+
+        Parameters:
+        - predictions: A NumPy array or list of predicted values.
+        - targets: A NumPy array or list of target (true) values.
+
+        Returns:
+        - rmse_value: The RMSE between the two vectors.
+        """
+        # Ensure predictions and targets are NumPy arrays
+        predictions = np.array(predictions)
+        targets = np.array(targets)
+
+        # Calculate the squared differences between predictions and targets
+        squared_errors = (predictions - targets) ** 2
+
+        # Calculate the mean of squared errors
+        mean_squared_error = squared_errors.mean()
+
+        # Calculate the square root to get RMSE
+        rmse_value = np.sqrt(mean_squared_error)
+
+        return rmse_value
 
