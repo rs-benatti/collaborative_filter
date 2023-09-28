@@ -89,6 +89,10 @@ class MatrixFactorizarion:
     def fit(self, lr_I, lr_U, num_iterations):
         R = self.R
         R = np.nan_to_num(R, nan=0)
+        non_nan_indices = np.where(~np.isnan(self.R))
+        # Separate the row and column indices
+        row_indices, col_indices = non_nan_indices
+        R_non_nan = self.R[row_indices, col_indices]
 
         mu = self.mu
         l = self.l
@@ -112,17 +116,18 @@ class MatrixFactorizarion:
             # Calculate gradients for I matrix
             num_users = self.R.shape[0]
             num_items = self.R.shape[1]
-            '''
             for i in range(num_users):
                 for q in range(self.k):
                     gradient_iiq = self.calculate_gradient_iiq(i, q)
                     gradients_I[i, q] = gradient_iiq
+            self.I -= lr_I * gradients_I
             # Calculate gradients for U matrix
             num_items = self.R.shape[1]
             for j in range(num_items):
                 for q in range(self.k):
                     gradient_ujq = self.calculate_gradient_ujq(j, q)
                     gradients_U[j, q] = gradient_ujq
+            self.U -= lr_U * gradients_U
             '''
             for q in range(self.k):
                 for i in range(num_users):
@@ -131,12 +136,15 @@ class MatrixFactorizarion:
                 for j in range(num_items):
                     gradient_ujq = self.calculate_gradient_ujq(j, q)
                     gradients_U[j, q] = gradient_ujq
-            # Update I and U matrices using gradients and learning rate
-            self.I -= lr_I * gradients_I
-            self.U -= lr_U * gradients_U
+            '''
+            prediction_full = self.predict()
+            prediction = prediction_full[row_indices, col_indices]
+            rmse = self.RMSE(prediction, R_non_nan)
+            
+            
             cost = self.C(self.R, self.I, self.U, l, mu)
 
-            print(f"Iteration {iteration + 1}: Cost = {cost}")
+            print(f"Iteration {iteration + 1}: Cost = {cost}. RMSE = {rmse}")
 
     def predict(self):
         return self.I @ self.U.T
