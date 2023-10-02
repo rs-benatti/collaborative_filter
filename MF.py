@@ -6,13 +6,36 @@ from scipy.sparse import csr_matrix
 class MatrixFactorizarion:
     def __init__(self, R, l, mu, k):
         self.R = R
+
+        non_nan_indices = np.where(~np.isnan(self.R))
+        self.non_nan_indices = non_nan_indices
+        row_indices, col_indices = non_nan_indices
+        # Separating the data into train/test
+
+        self.R_train = self.R.copy()
+        test_set_size = int(0.25 * len(row_indices))
+
+        random_indices = [np.random.randint(0, len(row_indices)) for i in range(test_set_size)]
+        # These randm indices will be used again to calculate test RMSE
+        self.random_row = row_indices[random_indices]
+        self.random_col = col_indices[random_indices]
+
+        print(self.random_row, self.random_col)
+
+        self.R_train[self.random_row, self.random_col] = np.nan
+        self.R_test = self.R[self.random_row, self.random_col]
+
+        #
+
+        non_nan_indices = np.where(~np.isnan(self.R))
+        self.non_nan_indices = non_nan_indices
+        row_indices, col_indices = non_nan_indices
+
         self.R_sparse = csr_matrix(self.R)
         self.k = k
         self.l = l
         self.mu = mu
-        non_nan_indices = np.where(~np.isnan(self.R))
-        self.non_nan_indices = non_nan_indices
-        row_indices, col_indices = non_nan_indices
+        
         mean = self.R[~np.isnan(self.R)].mean()
         self.S = [row_indices, col_indices, self.R[~np.isnan(self.R)]]
         values = self.R.flatten()
@@ -129,11 +152,17 @@ class MatrixFactorizarion:
             prediction_full = self.predict()
             prediction = prediction_full[row_indices, col_indices]
             rmse = self.RMSE(prediction, R_non_nan)
+
+            ### RMSE for test set
+
+            prediction_test = prediction_full[self.random_row, self.random_col]
+
+            rmse_test = self.RMSE(prediction_test, self.R_test)
             
             
             cost = self.C(self.R, self.I, self.U, l, mu)
 
-            print(f"Iteration {iteration + 1}: Cost = {cost}. RMSE = {rmse}")
+            print(f"Iteration {iteration + 1}: Cost = {cost}. RMSE = {rmse}. RMSE in test set = {rmse_test}")
 
     def predict(self):
         return self.I @ self.U.T
