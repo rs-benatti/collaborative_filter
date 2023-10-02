@@ -20,10 +20,10 @@ class MatrixFactorizarion:
         self.random_row = row_indices[random_indices]
         self.random_col = col_indices[random_indices]
 
-        print(self.random_row, self.random_col)
-
         self.R_train[self.random_row, self.random_col] = np.nan
         self.R_test = self.R[self.random_row, self.random_col]
+        self.RMSE_train_hist = []
+        self.RMSE_test_hist = []
 
         #
 
@@ -98,6 +98,7 @@ class MatrixFactorizarion:
 
     
     def fit(self, lr_I, lr_U, num_iterations):
+        
         R = self.R
         R = np.nan_to_num(R, nan=0)
         non_nan_indices = np.where(~np.isnan(self.R))
@@ -158,7 +159,8 @@ class MatrixFactorizarion:
             prediction_test = prediction_full[self.random_row, self.random_col]
 
             rmse_test = self.RMSE(prediction_test, self.R_test)
-            
+            self.RMSE_test_hist.append(rmse_test)
+            self.RMSE_train_hist.append(rmse)
             
             cost = self.C(self.R, self.I, self.U, l, mu)
 
