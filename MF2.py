@@ -36,13 +36,14 @@ class MF:
         mean = self.R[~np.isnan(self.R)].mean()
         self.I = (np.ones((self.R.shape[0], self.k)) / self.k**0.5) * mean**0.5
         self.U = (np.ones((self.R.shape[1], self.k)) / self.k**0.5) * mean**0.5
+        '''
         for i in range(self.I.shape[0]):
             for j in range(k):
                 self.I[i, j] = self.I[i, j] * 2*((j+1)/k)
         for i in range(self.U.shape[0]):
             for j in range(k):
                 self.U[i, j] = self.U[i, j] * 2*((j+1)/k)
-    
+        '''
     def getReleventJs(self, i):
         return self.idict[i]
     
@@ -90,6 +91,60 @@ class MF:
         rmse_value = sqrt(mean_squared_error)
 
         return rmse_value
+    
+    def RMSE_(self, predictions):
+        """
+        Calculate the Root Mean Squared Error (RMSE) between two vectors.
+
+        Parameters:
+        - predictions: A NumPy array or list of predicted values.
+        - targets: A NumPy array or list of target (true) values.
+
+        Returns:
+        - rmse_value: The RMSE between the two vectors.
+        """
+        # Ensure predictions and targets are NumPy arrays
+        predictions = predictions[self.validIndicesR]
+        targets = self.R[self.validIndicesR]
+
+        # Calculate the squared differences between predictions and targets
+        squared_errors = (predictions - targets) ** 2
+
+        # Calculate the mean of squared errors
+        mean_squared_error = squared_errors.mean()
+
+        # Calculate the square root to get RMSE
+        rmse_value = sqrt(mean_squared_error)
+
+        return rmse_value
+    
+    def accuracy(self, predictions):
+        """
+        Calculate the accuracy between predicted values and target (true) values.
+
+        Parameters:
+        - predictions: A NumPy array or list of predicted values.
+        - threshold: A threshold value (default is 0.5) for binary classification.
+
+        Returns:
+        - accuracy_value: The accuracy between the predicted and target values.
+        """
+        # Ensure predictions and targets are NumPy arrays
+        predictions = predictions[self.validIndicesR]
+        targets = self.R[self.validIndicesR]
+        
+        diff = predictions - targets
+        # Calculate the number of correct predictions
+        correct_predictions =  len(diff) - np.count_nonzero(diff)
+
+        # Calculate total number of predictions
+        total_predictions = len(targets)
+
+        # Calculate accuracy
+        accuracy_value = correct_predictions / total_predictions
+
+        return accuracy_value
+
     
     def calculate_gradient_iiq(self, i, q):
         releventJs = self.getReleventJs(i)
@@ -151,6 +206,6 @@ class MF:
             self.U -= lr_U * gradients_U
             
             print(f"Iteration {it + 1}: Cost = {self.Cost()}. RMSE = {self.RMSE()}")
-        print("I:",self.I)
-        print("U:",self.U)
+        #print("I:",self.I)
+        #print("U:",self.U)
         

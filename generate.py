@@ -3,7 +3,7 @@ import numpy as np
 import os
 from tqdm import tqdm, trange
 import argparse
-
+import MF2
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate a completed ratings table.')
@@ -21,11 +21,17 @@ if __name__ == '__main__':
     
 
     # Any method you want
-    average = np.nanmean(table)
-    table = np.nan_to_num(table, nan=average)
+    #average = np.nanmean(table)
+    #table = np.nan_to_num(table, nan=average)
 
-    
+    k = 1
+    factorization = MF2.MF(table, l=0.01, mu=0.01, k=k)
+    num_iterations = 400
+    factorization.fit(lr_I=0.0001, lr_U=0.0001, num_iterations=num_iterations)
+    prediction = factorization.predict()
 
+    rounded_predictions = np.round(prediction*2)/2
+    table = rounded_predictions
     # Save the completed table 
     np.save("output.npy", table) ## DO NOT CHANGE THIS LINE
 
