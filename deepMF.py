@@ -5,43 +5,24 @@ import numpy as np
 
 # Load the input data from a numpy file
 input_data = np.load('dataset/ratings_test.npy')
-indices_Y_plus = np.where(~np.isnan(input_data))
-Y_plus = np.array(np.where(~np.isnan(input_data))).T
-
 # Replace NaN values with 0
 input_data[np.isnan(input_data)] = 0
 
-Y_plus_i = input_data[indices_Y_plus[0]] # each column that has a valid value
-Y_plus_j = input_data[:, indices_Y_plus[1]] # each row that has a valid value
-print(Y_plus_i.shape)
-print(Y_plus_j.shape)
-'''
-neg_ratio = 5
-total_neg_values = neg_ratio * Y_plus.shape[0]
-Y_neg = [[np.random.randint(0, input_data.shape[0]), np.random.randint(0, input_data.shape[1])] for _ in range(total_neg_values)]
-Y_neg = np.array(Y_neg)
-Y_neg_i = input_data[Y_neg.T[0]]
-Y_neg_j = input_data[:, Y_neg.T[1]]
-#print(Y_neg_i.shape)
-#print(Y_neg_j.shape)
-'''
 input_data = input_data/np.max(input_data)
 
 normalized_input_data = input_data/np.max(input_data)
 print(normalized_input_data.shape)
 
-
-
 encoded_dim = 5
 
 # Define the model
 class ParallelLayersModel(nn.Module):
-    def __init__(self, input_size1, input_size2, hidden_size):
+    def __init__(self, input_size, hidden_size):
         super(ParallelLayersModel, self).__init__()
         
 
-        self.row_layer = nn.Linear(input_size1, hidden_size)
-        self.col_layer = nn.Linear(input_size2, hidden_size)
+        self.row_layer = nn.Linear(input_size[1], hidden_size)
+        self.col_layer = nn.Linear(input_size[0], hidden_size)
         self.row_output_layer = nn.Linear(hidden_size, encoded_dim)
         self.col_output_layer = nn.Linear(hidden_size, encoded_dim)
         
@@ -72,23 +53,19 @@ class ParallelLayersModel(nn.Module):
         return similarity
 
 # Create an instance of the model
-#input_size = input_data.shape 
-input_size = (Y_plus_i.shape[1], Y_plus_j.shape[0])
-Y_input = [Y_plus_i, Y_plus_j.T]
+input_size = input_data.shape 
 hidden_size = 32
-model = ParallelLayersModel(input_size[0], input_size[1], hidden_size)
+model = ParallelLayersModel(input_size, hidden_size)
 
 # Define the training function
-def train_model(model, input_indices, labels, num_epochs=100, learning_rate=0.01):
+def train_model(model, input_data, labels, num_epochs=100, learning_rate=0.001):
     criterion = nn.BCELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     
     for epoch in range(num_epochs):
         optimizer.zero_grad()
-        input_data1 = torch.FloatTensor(input_data[indices_Y_plus[0]])
-        print(input_data[indices_Y_plus[0]])
-        input_data2 = torch.FloatTensor(input_data[:, indices_Y_plus[1]])
-        similarity_scores = model(input_data1, input_data2)
+       
+        similarity_scores = model(input_data, input_data.T)
         #print(similarity_scores.shape)
         #print(torch.max(similarity_scores))
         #print(torch.min(similarity_scores))
@@ -103,9 +80,7 @@ def train_model(model, input_indices, labels, num_epochs=100, learning_rate=0.01
             
     print('Training complete.')
 
-train_model(model, Y_plus, torch.FloatTensor(normalized_input_data))
 
-'''
 # Training the model
 train_model(model, torch.FloatTensor(input_data), torch.FloatTensor(normalized_input_data))
 # Pass the new input data through the trained model to get predictions
@@ -113,4 +88,3 @@ predicted_similarity_scores = model(torch.FloatTensor(input_data), torch.FloatTe
 print(torch.max(predicted_similarity_scores))
 # Print or use the predicted_similarity_scores as needed
 print(predicted_similarity_scores)
-'''
