@@ -87,7 +87,7 @@ def train_model(model, input_indices, labels, num_epochs=100, learning_rate=0.01
         optimizer.zero_grad()
         input_data1 = torch.FloatTensor(input_data[indices_Y_plus[0]])
         print(input_data[indices_Y_plus[0]])
-        input_data2 = torch.FloatTensor(input_data[:, indices_Y_plus[1]])
+        input_data2 = torch.FloatTensor(input_data[:, indices_Y_plus[1]].T)
         similarity_scores = model(input_data1, input_data2)
         #print(similarity_scores.shape)
         #print(torch.max(similarity_scores))
