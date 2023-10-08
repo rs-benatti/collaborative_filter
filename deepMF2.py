@@ -71,7 +71,7 @@ def train_model(model, input_data, num_epochs=100, learning_rate=0.001):
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     weight = input_data.clone()
     weight[weight!=0] = 1
-    weight[weight==0] = 0.01
+    weight[weight==0] = 0.0000
     loss_fn = nn.BCELoss(weight=weight, reduction='mean')
     #loss_fn = nn.MSELoss()
 
