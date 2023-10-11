@@ -3,7 +3,8 @@ import numpy as np
 import os
 from tqdm import tqdm, trange
 import argparse
-import MF2
+import deepMF
+import torch
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate a completed ratings table.')
@@ -21,17 +22,25 @@ if __name__ == '__main__':
     
 
     # Any method you want
-    #average = np.nanmean(table)
-    #table = np.nan_to_num(table, nan=average)
+    """average = np.nanmean(table)
+    table = np.nan_to_num(table, nan=average)"""
 
-    k = 1
-    factorization = MF2.MF(table, l=0.01, mu=0.01, k=k)
-    num_iterations = 400
-    factorization.fit(lr_I=0.0001, lr_U=0.0001, num_iterations=num_iterations)
-    prediction = factorization.predict()
+    """average = np.nanmean(table)
+    table = np.nan_to_num(table, nan=average)"""
 
-    rounded_predictions = np.round(prediction*2)/2
-    table = rounded_predictions
+    # Replace NaN values with 0
+    table[np.isnan(table)] = 0
+    normalized_input_data = table/np.max(table)
+
+    encoded_dim = 32
+    input_size = table.shape 
+    hidden_size_row = 16
+    hidden_size_col = 64
+    model = deepMF.ParallelLayersModel(input_size, hidden_size_row, hidden_size_col, encoded_dim)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.0001)
+    deepMF.train_model(model, optimizer, torch.FloatTensor(normalized_input_data), num_epochs=130)
+    predicted = model(torch.FloatTensor(normalized_input_data), torch.FloatTensor(normalized_input_data).T) 
+    table = model.numpy_and_round(predicted)
     # Save the completed table 
     np.save("output.npy", table) ## DO NOT CHANGE THIS LINE
 

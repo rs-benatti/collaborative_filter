@@ -2,89 +2,102 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-
-# Load the input data from a numpy file
-input_data = np.load('dataset/ratings_test.npy')
-# Replace NaN values with 0
-input_data[np.isnan(input_data)] = 0
-
-input_data = input_data/np.max(input_data)
-
-normalized_input_data = input_data/np.max(input_data)
-print(normalized_input_data.shape)
-
-encoded_dim = 5
+import time
 
 # Define the model
 class ParallelLayersModel(nn.Module):
-    def __init__(self, input_size, hidden_size):
+    def __init__(self, input_size, hidden_size_row, hidden_size_col, encoded_dim=10):
         super(ParallelLayersModel, self).__init__()
-        
+        self.rmse_train_hist = []
+        self.rmse_test_hist = []
+        self.row_layer = nn.Linear(input_size[1], hidden_size_row*2)
+        self.row_layer2 = nn.Linear(hidden_size_row*2, hidden_size_row)
+        self.row_layer3 = nn.Linear(hidden_size_row, int(hidden_size_row/2))
 
-        self.row_layer = nn.Linear(input_size[1], hidden_size)
-        self.col_layer = nn.Linear(input_size[0], hidden_size)
-        self.row_output_layer = nn.Linear(hidden_size, encoded_dim)
-        self.col_output_layer = nn.Linear(hidden_size, encoded_dim)
+        self.col_layer = nn.Linear(input_size[0], hidden_size_col*2)
+        self.col_layer2 = nn.Linear(hidden_size_col*2, hidden_size_col)
+        self.col_layer3 = nn.Linear(hidden_size_col, int(hidden_size_col/2))
+
+        self.row_output_layer = nn.Linear(int(hidden_size_row/2), encoded_dim)
+        self.col_output_layer = nn.Linear(int(hidden_size_col/2), encoded_dim)
+
         
     def forward(self, rows, cols):
         rows_output = torch.relu(self.row_layer(rows))
+        rows_output = torch.relu(self.row_layer2(rows_output))
+        rows_output = torch.relu(self.row_layer3(rows_output))
         rows_output = torch.relu(self.row_output_layer(rows_output))
-        #print(rows_output.shape) 
-        cols_output = torch.relu(self.col_layer(cols))
-        cols_output = torch.relu(self.col_output_layer(cols_output))
-        #print(cols_output.shape)
 
-        similarity = torch.mm(rows_output, cols_output.T)
+        cols_output = torch.relu(self.col_layer(cols))
+        cols_output = torch.relu(self.col_layer2(cols_output))
+        cols_output = torch.relu(self.col_layer3(cols_output))
+        cols_output = torch.relu(self.col_output_layer(cols_output))
+    
+        Y_hat = torch.mm(rows_output, cols_output.T)
+
+        cols_output = torch.clamp(cols_output, min=0.0000001)
+        rows_output = torch.clamp(rows_output, min=0.0000001)
+
         row_norms = torch.norm(rows_output, dim=1)
         cols_norms = torch.norm(cols_output, dim=1)
-        #print(row_norms.shape)
-        #print(cols_norms.shape)
-
         # Compute the matrix of products using broadcasting
-        product_matrix = row_norms[:, None] * cols_norms
-        #print(f"min product {torch.min(product_matrix)}")
-        similarity = similarity/product_matrix
-        # Create a mask for NaN values
-        nan_mask = torch.isnan(similarity)
+        product_matrix = torch.mm(row_norms[:, None], cols_norms[None, :])
 
-        # Replace NaN values with 0
-        similarity[nan_mask] = 0
-        torch.sigmoid(similarity)
-        return similarity
+        Y_hat = Y_hat/product_matrix
+        Y_hat = torch.clamp(Y_hat, max=0.99999, min=0.00001)
+        return Y_hat
+    
+    def RMSE(self, Y, Y_hat):
+        return torch.mean(torch.sqrt((Y_hat[Y!=0] - Y[Y!=0])**2)).item()
+    
+    def numpy_and_round(self, Y_hat):# Y_hat normalized
+        return np.round(Y_hat.detach().numpy() * 10)/2
+        
 
-# Create an instance of the model
-input_size = input_data.shape 
-hidden_size = 32
-model = ParallelLayersModel(input_size, hidden_size)
+"""# Create an instance of the model
+input_size = train_set.shape
+hidden_size_row = 16
+hidden_size_col = 64"""
 
 # Define the training function
-def train_model(model, input_data, labels, num_epochs=100, learning_rate=0.001):
-    criterion = nn.BCELoss()
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    
+def train_model(model, optimizer, input_data, weight_decay = False, num_epochs=250, test_data=False): # Obs.: test_data must not be normalized   
+    if (test_data is not False):
+        target_train = torch.FloatTensor(input_data*5)
+        target_test = torch.FloatTensor(test_data)
+    weight = input_data.clone()
+    weight[weight!=0] = 1
+    weight[weight==0] = 0.0000
+    loss_fn = nn.BCELoss(weight=weight, reduction='mean')
+    #loss_fn = nn.MSELoss()
+    rmse_train = []
+    rmse_test = []
+    times = []
     for epoch in range(num_epochs):
         optimizer.zero_grad()
        
-        similarity_scores = model(input_data, input_data.T)
-        #print(similarity_scores.shape)
-        #print(torch.max(similarity_scores))
-        #print(torch.min(similarity_scores))
-        #print(torch.max(labels))
-        #print(torch.min(labels))
-        loss = criterion(similarity_scores, labels)
+        Y_hat = model(input_data, input_data.T)
+        loss = loss_fn(Y_hat, input_data)
         loss.backward()
         optimizer.step()
+
+        if test_data is not False:
+            rmse_train.append(model.RMSE(target_train, Y_hat*5))     
+                   
+            rmse_test.append(model.RMSE(target_test, Y_hat*5))
         
-        if (epoch + 1) % 10 == 0:
-            print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}')
-            
+    model.rmse_train_hist = rmse_train
+    model.rmse_test_hist = rmse_test
+
+
+'''        
+    print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.6f}')
+    plt.plot(rmse_test, label=type (optimizer).__name__+" "+str(weight_decay)+" min: "
+             +str(min(rmse_test))+" index: "+str(rmse_test.index(min(rmse_test))) +
+               " time: "+str(times[rmse_test.index(min(rmse_test))]))
+    plt.plot(rmse_test, label=type (optimizer).__name__+" k="+str(k)+" min: "
+             +str(min(rmse_test))+" index: "+str(rmse_test.index(min(rmse_test))) +
+               " time: "+str(times[rmse_test.index(min(rmse_test))]))
+    plt.plot(rmse_test)
+    
     print('Training complete.')
-
-
-# Training the model
-train_model(model, torch.FloatTensor(input_data), torch.FloatTensor(normalized_input_data))
-# Pass the new input data through the trained model to get predictions
-predicted_similarity_scores = model(torch.FloatTensor(input_data), torch.FloatTensor(normalized_input_data).T)
-print(torch.max(predicted_similarity_scores))
-# Print or use the predicted_similarity_scores as needed
-print(predicted_similarity_scores)
+'''
