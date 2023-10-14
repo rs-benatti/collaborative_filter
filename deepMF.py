@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-import time
+import matplotlib.pyplot as plt
 
 # Define the model
 class ParallelLayersModel(nn.Module):
@@ -54,11 +54,6 @@ class ParallelLayersModel(nn.Module):
         return np.round(Y_hat.detach().numpy() * 10)/2
         
 
-"""# Create an instance of the model
-input_size = train_set.shape
-hidden_size_row = 16
-hidden_size_col = 64"""
-
 # Define the training function
 def train_model(model, optimizer, input_data, weight_decay = False, num_epochs=250, test_data=False): # Obs.: test_data must not be normalized   
     if (test_data is not False):
@@ -84,19 +79,21 @@ def train_model(model, optimizer, input_data, weight_decay = False, num_epochs=2
                    
             rmse_test.append(model.RMSE(target_test, Y_hat*5))
         
+        print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.6f}')
+
+        
     model.rmse_train_hist = rmse_train
     model.rmse_test_hist = rmse_test
 
-
-'''        
-    print(f'Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.6f}')
-    plt.plot(rmse_test, label=type (optimizer).__name__+" "+str(weight_decay)+" min: "
-             +str(min(rmse_test))+" index: "+str(rmse_test.index(min(rmse_test))) +
-               " time: "+str(times[rmse_test.index(min(rmse_test))]))
-    plt.plot(rmse_test, label=type (optimizer).__name__+" k="+str(k)+" min: "
-             +str(min(rmse_test))+" index: "+str(rmse_test.index(min(rmse_test))) +
-               " time: "+str(times[rmse_test.index(min(rmse_test))]))
     plt.plot(rmse_test)
     
     print('Training complete.')
-'''
+
+
+
+# Create an instance of the model
+input_size = train_set.shape
+hidden_size_row = 16
+hidden_size_col = 64
+     
+
