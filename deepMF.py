@@ -76,8 +76,7 @@ def train_model(model, optimizer, input_data, weight_decay = False, num_epochs=2
     rmse_test = []
     times = []
     for epoch in range(num_epochs):
-        optimizer.zero_grad()
-       
+        optimizer.zero_grad()      
         Y_hat = model(input_data, input_data.T)
         loss = loss_fn(Y_hat, input_data)
         loss.backward()
