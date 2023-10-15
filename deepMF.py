@@ -20,6 +20,8 @@ class ParallelLayersModel(nn.Module):
 
         self.row_output_layer = nn.Linear(int(hidden_size_row/2), encoded_dim)
         self.col_output_layer = nn.Linear(int(hidden_size_col/2), encoded_dim)
+        self.num_epochs = 0 # useful for plotting analysis later
+        self.encoded_dim  = encoded_dim
 
         
     def forward(self, rows, cols):
@@ -61,6 +63,7 @@ hidden_size_col = 64"""
 
 # Define the training function
 def train_model(model, optimizer, input_data, weight_decay = False, num_epochs=250, test_data=False): # Obs.: test_data must not be normalized   
+    model.num_epochs = num_epochs
     if (test_data is not False):
         target_train = torch.FloatTensor(input_data*5)
         target_test = torch.FloatTensor(test_data)
