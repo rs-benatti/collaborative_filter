@@ -58,11 +58,10 @@ class ParallelLayersModel(nn.Module):
 # Define the training function
 def train_model(model, optimizer, input_data, weights, num_epochs=250,
                 test_data=False):  # Obs.: test_data must not be normalized
+    target_train = torch.FloatTensor(input_data * 5)
     if test_data is not False:
-        target_train = torch.FloatTensor(input_data * 5)
         target_test = torch.FloatTensor(test_data)
     loss_fn = nn.BCELoss(weight=weights, reduction='mean')
-    # loss_fn = nn.MSELoss()
     rmse_train = []
     rmse_test = []
     times = []

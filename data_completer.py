@@ -4,14 +4,9 @@ import numpy as np
 
 
 def rework_metadata(A):
-    print(A)
     df = pd.DataFrame(A, columns=['Movie', 'Genres'])
-    print(df)
     genre_dummies = df['Genres'].str.get_dummies('|')
-    print(genre_dummies)
     genre_dummies = genre_dummies.drop('(no genres listed)', axis=1)
-    print(genre_dummies)
-    exit()
     return genre_dummies.transpose()
 
 
@@ -79,7 +74,6 @@ def add_ratings(R, neighbors):
     print('beginning of added values')
 
     added_values = np.full(R.shape, False)
-    print(R.shape)
     for i in range(R.shape[0]):
         begin = time()
         for j in range(R.shape[1]):
@@ -98,14 +92,13 @@ def add_ratings(R, neighbors):
 
         end = time()
         t = end - begin
-        print(i, t)
-    print(np.sum(added_values is True))
+        print(i, t, np.sum(added_values[i]))
     return R, added_values
 
 
-def complete_data():
-    R = np.load('./dataset/ratings_train.npy')
-    A = np.load('./dataset/namesngenre.npy')
+def complete_data(train_size=0.8):
+    R = np.load("./dataset/ratings_train_" + str(train_size) + ".npy")
+    A = np.load("./dataset/namesngenre.npy")
     reworked_A = rework_metadata(A)
     years = get_years(A)
     distances_matrix = distance_between_movies(reworked_A, years)
@@ -120,5 +113,39 @@ def complete_data():
         mean += len(ele)
     print(mean / len(neighbors))
     new_R, added_values = add_ratings(R.copy(), neighbors)
-    np.save("./dataset/ratings_train_completed.npy", new_R)
-    np.save("./dataset/completed_mask.npy", added_values)
+    np.save("./dataset/ratings_train_completed_" + str(train_size) + ".npy", new_R)
+    np.save("./dataset/completed_mask_" + str(train_size) + ".npy", added_values)
+
+
+def train_test_split(train_size=0.8):
+    # Load the input data from a numpy file
+    ratings_train = np.load("./dataset/ratings_train.npy")
+    ratings_test = np.load("dataset/ratings_test.npy")
+
+    # Replace NaN values with 0
+    ratings_train[np.isnan(ratings_train)] = 0
+    ratings_test[np.isnan(ratings_test)] = 0
+    total_data = ratings_train + ratings_test
+
+    non_empty_indices = np.where(total_data != 0)
+    non_empty_indices = np.array([non_empty_indices[0], non_empty_indices[1]])
+
+    indices = np.random.choice(np.array(range(non_empty_indices.shape[1])), size=non_empty_indices.shape[1],
+                               replace=False)
+
+    train_set_indices = indices[0:int(non_empty_indices.shape[1] * train_size)]
+    train_set_indices2d = np.array(non_empty_indices[:, train_set_indices])
+    train_set = np.zeros(total_data.shape)
+    train_set[train_set_indices2d[0], train_set_indices2d[1]] = total_data[
+        train_set_indices2d[0], train_set_indices2d[1]]
+
+    test_set_indices = indices[int(non_empty_indices.shape[1] * train_size):]
+    test_set_indices2d = np.array(non_empty_indices[:, test_set_indices])
+    test_set = np.zeros(total_data.shape)
+    test_set[test_set_indices2d[0], test_set_indices2d[1]] = total_data[test_set_indices2d[0], test_set_indices2d[1]]
+
+    train_set[train_set == 0] = np.nan
+    test_set[test_set == 0] = np.nan
+
+    np.save("./dataset/ratings_train_" + str(train_size) + ".npy", train_set)
+    np.save("./dataset/ratings_test_" + str(train_size) + ".npy", test_set)
