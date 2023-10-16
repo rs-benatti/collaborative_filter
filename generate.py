@@ -41,6 +41,7 @@ if __name__ == '__main__':
     deepMF.train_model(model, optimizer, torch.FloatTensor(normalized_input_data), num_epochs=130)
     predicted = model(torch.FloatTensor(normalized_input_data), torch.FloatTensor(normalized_input_data).T) 
     table = model.numpy_and_round(predicted)
+    #table = predicted.detach().numpy() * 5
     # Save the completed table 
     np.save("output.npy", table) ## DO NOT CHANGE THIS LINE
 
