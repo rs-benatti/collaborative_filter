@@ -38,8 +38,8 @@ if __name__ == '__main__':
     hidden_size_col = 64
     model = deepMF.ParallelLayersModel(input_size, hidden_size_row, hidden_size_col, encoded_dim)
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.0001)
-    deepMF.train_model(model, optimizer, torch.FloatTensor(normalized_input_data), num_epochs=130)
-    predicted = model(torch.FloatTensor(normalized_input_data), torch.FloatTensor(normalized_input_data).T) 
+    deepMF.train_model(model, optimizer, torch.FloatTensor(normalized_input_data), num_epochs=500)
+    predicted, _, _ = model(torch.FloatTensor(normalized_input_data), torch.FloatTensor(normalized_input_data).T) 
     table = model.numpy_and_round(predicted)
     #table = predicted.detach().numpy() * 5
     # Save the completed table 

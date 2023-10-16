@@ -70,6 +70,7 @@ def train_model(model, optimizer, input_data, num_epochs=250,
     weight = input_data.clone()
     weight[weight!=0] = 1
     weight[weight==0] = 0.0000
+
     loss_fn = nn.BCELoss(weight=weight, reduction='mean')
     model.num_epochs = num_epochs
     #loss_fn = nn.MSELoss()
