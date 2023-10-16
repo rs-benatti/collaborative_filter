@@ -20,6 +20,8 @@ class ParallelLayersModel(nn.Module):
 
         self.row_output_layer = nn.Linear(int(hidden_size_row/2), encoded_dim)
         self.col_output_layer = nn.Linear(int(hidden_size_col/2), encoded_dim)
+        self.num_epochs = 0 # useful for plotting analysis later
+        self.encoded_dim  = encoded_dim
 
         
     def forward(self, rows, cols):
@@ -45,10 +47,10 @@ class ParallelLayersModel(nn.Module):
 
         Y_hat = Y_hat/product_matrix
         Y_hat = torch.clamp(Y_hat, max=0.99999, min=0.00001)
-        return Y_hat
-    
+        return Y_hat, row_norms, cols_norms
+
     def RMSE(self, Y, Y_hat):
-        return torch.mean(torch.sqrt((Y_hat[Y!=0] - Y[Y!=0])**2)).item()
+        return torch.sqrt(torch.mean((Y_hat[Y!=0] - Y[Y!=0])**2)).item()
     
     def numpy_and_round(self, Y_hat):# Y_hat normalized
         return np.round(Y_hat.detach().numpy() * 10)/2
@@ -60,22 +62,24 @@ hidden_size_row = 16
 hidden_size_col = 64"""
 
 # Define the training function
-def train_model(model, optimizer, input_data, weight_decay = False, num_epochs=250, test_data=False): # Obs.: test_data must not be normalized   
-    if (test_data is not False):
-        target_train = torch.FloatTensor(input_data*5)
+def train_model(model, optimizer, input_data, num_epochs=250,
+                test_data=False, lambda_=0, mu_=0):  # Obs.: test_data must not be normalized
+    if test_data is not False:
+        target_train = torch.FloatTensor(input_data * 5)
         target_test = torch.FloatTensor(test_data)
     weight = input_data.clone()
     weight[weight!=0] = 1
     weight[weight==0] = 0.0000
     loss_fn = nn.BCELoss(weight=weight, reduction='mean')
+    model.num_epochs = num_epochs
     #loss_fn = nn.MSELoss()
     rmse_train = []
     rmse_test = []
     times = []
     for epoch in range(num_epochs):
-        optimizer.zero_grad()      
-        Y_hat = model(input_data, input_data.T)
-        loss = loss_fn(Y_hat, input_data)
+        optimizer.zero_grad()
+        Y_hat, row_norms, cols_norms = model(input_data, input_data.T)
+        loss = loss_fn(Y_hat, input_data) + lambda_*torch.norm(row_norms, "fro").item() + mu_*torch.norm(cols_norms, "fro").item()
         loss.backward()
         optimizer.step()
 
