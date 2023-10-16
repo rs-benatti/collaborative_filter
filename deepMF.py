@@ -80,7 +80,6 @@ def train_model(model, optimizer, input_data, num_epochs=250,
         optimizer.zero_grad()
         Y_hat, row_norms, cols_norms = model(input_data, input_data.T)
         loss = loss_fn(Y_hat, input_data) + lambda_*torch.norm(row_norms, "fro").item() + mu_*torch.norm(cols_norms, "fro").item()
-        print(loss)
         loss.backward()
         optimizer.step()
 
