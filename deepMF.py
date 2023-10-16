@@ -65,10 +65,12 @@ class ParallelLayersModel(nn.Module):
 
 
 # Define the training function
+def train_model(model, optimizer, input_data, weights, num_epochs=250,
+                test_data=False):  # Obs.: test_data must not be normalized
+    target_train = torch.FloatTensor(input_data * 5)
 def train_model(model, optimizer, input_data, num_epochs=250,
                 test_data=False, lambda_=0, mu_=0):  # Obs.: test_data must not be normalized
     if test_data is not False:
-        target_train = torch.FloatTensor(input_data * 5)
         target_test = torch.FloatTensor(test_data)
     weight = input_data.clone()
     weight[weight!=0] = 1
